@@ -827,7 +827,8 @@ function drawChart(t: Token) {
 }
 
 function renderTrade(t: Token) {
-  const box = $('#tk-trade')!;
+  const box = $('#tk-trade');
+  if (!box) return;
   if (!S.account) {
     box.innerHTML = `<h2>Trade</h2><div class="empty"><p>View-only. Connect your wallet to trade with simulated WETH.</p>${chain.hasInjectedWallet() ? '<button class="btn primary" data-act="connect">Connect wallet</button>' : ''}</div>`;
     return;
@@ -910,7 +911,8 @@ function updateToken() {
 }
 
 function renderPositions(t: Token) {
-  const box = $('#tk-pos')!;
+  const box = $('#tk-pos');
+  if (!box) return; // token page not (or no longer) rendered
   if (!S.account) { box.innerHTML = `<h2>Your positions</h2><p class="muted">Connect a wallet to hold ${esc(t.ticker)} in your Friends' wallets and earn RF dividends.</p>`; return; }
   const you = t.balances[youKey()] ?? 0;
   const posFriends = S.myFriends.filter(f => f.active || (t.balances[sim.friendKey(f.collection, f.tokenId)] ?? 0) > 0);

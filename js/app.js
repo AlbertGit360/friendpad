@@ -918,6 +918,8 @@ function drawChart(t) {
 }
 function renderTrade(t) {
     const box = $('#tk-trade');
+    if (!box)
+        return;
     if (!S.account) {
         box.innerHTML = `<h2>Trade</h2><div class="empty"><p>View-only. Connect your wallet to trade with simulated WETH.</p>${chain.hasInjectedWallet() ? '<button class="btn primary" data-act="connect">Connect wallet</button>' : ''}</div>`;
         return;
@@ -1003,6 +1005,8 @@ function updateToken() {
 }
 function renderPositions(t) {
     const box = $('#tk-pos');
+    if (!box)
+        return; // token page not (or no longer) rendered
     if (!S.account) {
         box.innerHTML = `<h2>Your positions</h2><p class="muted">Connect a wallet to hold ${esc(t.ticker)} in your Friends' wallets and earn RF dividends.</p>`;
         return;

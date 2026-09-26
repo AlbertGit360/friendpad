@@ -60,6 +60,17 @@ function parseTokenURI(uri) {
 function attr(m, k) {
     return m.attributes?.find(a => a.trait_type === k)?.value;
 }
+function isHomeScene(image) {
+    if (!image?.startsWith('data:image/svg+xml;base64,'))
+        return false;
+    try {
+        const svg = atob(image.slice(26));
+        return svg.includes('id="landscape"') || svg.includes('A Rare Friend at home');
+    }
+    catch {
+        return false;
+    }
+}
 const friendCache = new Map();
 /** Read everything Friendpad needs about one Friend, straight from the chain. */
 export function readFriend(collection, tokenId, prefetchedMeta) {
@@ -90,6 +101,13 @@ async function readFriendUncached(collection, id, meta) {
     let m = parseTokenURI(uri);
     if (!m.image && meta?.image)
         m = meta;
+    // Hardwired Friends' tokenURI is a whole isometric scene ("A Rare Friend at home") where the character is tiny;
+    // cards use the canonical character sprite from the FriendSDK sprite registry instead.
+    if (collection === 'generations' && isHomeScene(m.image)) {
+        const portrait = await import('./sprites.js').then(s => s.portraitDataURL(id.toString())).catch(() => '');
+        if (portrait)
+            m = { ...m, image: portrait };
+    }
     const code = await client.getCode({ address: tba }).catch(() => undefined);
     const weight = BigInt(pos[1] ?? 0n);
     return {

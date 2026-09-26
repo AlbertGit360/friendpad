@@ -79,3 +79,16 @@ export function spriteFrame(s, facing, walking, frame, lastSide) {
     const f = s.familyId === 6 && (facing === 'up' || facing === 'down') ? lastSide : facing;
     return s.clips[walking ? 'walk' : 'idle'][f][frame & 7];
 }
+/** Portrait for cards: the canonical idle front frame, upscaled nearest-neighbour (white-on-black like the collection). */
+export async function portraitDataURL(tokenId, scale = 5) {
+    const s = await readSprites(tokenId);
+    const src = s.clips.idle[s.familyId === 6 ? 'right' : 'down'][0];
+    const c = document.createElement('canvas');
+    c.width = c.height = src.width * scale;
+    const g = c.getContext('2d');
+    g.imageSmoothingEnabled = false;
+    g.fillStyle = '#000';
+    g.fillRect(0, 0, c.width, c.height);
+    g.drawImage(src, 0, 0, c.width, c.height);
+    return c.toDataURL('image/png');
+}

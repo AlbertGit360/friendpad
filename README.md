@@ -11,7 +11,9 @@ Rare Friends Vibeathon submission · category **Token Activity**.
 - **Stack:** not built on the FriendSDK game runtime — vanilla TypeScript compiled to ES modules + [viem](https://viem.sh) 2.21.54, static site, no bundler. The holder world reuses FriendSDK v0.1.2's world renderer and movement modules (vendored, see Credits).
 - **Wallet / network:** any injected EIP-1193 wallet (MetaMask, Rabby, …) on Robinhood Chain mainnet (chainId 4663). The wallet is only asked for its address — **no transactions, no signatures, no RF needed**. To launch you need an **activated** Rare Friend (hardwired Generations NFT, gen ≥ 1, or Genesis) — activate it on [rarefriends.com](https://rarefriends.com). Without a wallet everything is browsable read-only; `?dev=1` lets you launch from any Friend you look up.
 
-![Launch with generation preview](docs/01-launch.png)
+![Friendpad](docs/00-home.png)
+
+![How RF flows](docs/friendpad-flow.png)
 
 ## How to use it
 
@@ -23,9 +25,15 @@ Rare Friends Vibeathon submission · category **Token Activity**.
 6. **Your positions**: *Move to Friend*, *Sell from Friend*, *Move out* and *Claim* RF dividends. Each opens the **real `execute(...)` calldata** the Friend wallet would send in production, then applies the change to the simulation.
 7. **Economy** shows RF burned, RF paid to Friends, creator fees, per-token tax and the Friends leaderboard. **Reset simulation** re-seeds the demo.
 
-| Buy | Holder world grows | Economy |
-|---|---|---|
-| ![Buy](docs/02-buy.png) | ![Holder world](docs/03-holder-world.png) | ![Economy](docs/05-economy.png) |
+| Your activated Friends | Launch with generation preview |
+|---|---|
+| ![My Friends](docs/06-friends.png) | ![Launch](docs/01-launch.png) |
+| **Buy straight into a Friend wallet** | **Holder world grows** |
+| ![Buy](docs/02-buy.png) | ![Holder world](docs/03-holder-world.png) |
+| **Positions: Move / Sell / Claim** | **Claim shows real execute() calldata** |
+| ![Positions](docs/04-positions.png) | ![Claim calldata](docs/05-claim-calldata.png) |
+
+![Economy](docs/07-economy.png)
 
 ## Real vs simulated
 
@@ -152,6 +160,7 @@ Only the public RPC (`https://rpc.mainnet.chain.robinhood.com`) and the public B
 - Pixelizer checked by eye on four real meme photos (Grumpy Cat, Kabosu/Doge, Lil Bub, Pepe cosplay) — see the comparison image above; sharpness and legibility increase Gen-6 → Gen-1 → Genesis.
 - Browser checks (Chrome, desktop): seeded tokens render; launch preview defaults to the creator Friend's tier; buy updates chart, trades and holder world; floating wallets never cover walking Friends or labels; Economy page; reload on `#/token/…` keeps the route.
 - Deployed GitHub Pages site checked in a fresh browser profile without a wallet: viem loads from esm.sh, RPC and Blockscout reads work (CORS), Friend lookup works, hash routes survive a reload.
+- Friend cards use the canonical character sprite from the FriendSDK sprite registry, because a hardwired Friend's `tokenURI` is a whole isometric "at home" scene.
 - Large wallet: a real 210-Friend address (read-only, address only) lists all 10 activated Friends with sprites and deployed wallets.
 - Not automated: there is no unit-test suite. Screenshot/browser checks used a read-only mock wallet (address only); the Move to Friend → Claim flow with a real wallet holding an activated Friend is not covered by these checks.
 
@@ -176,4 +185,4 @@ Real contracts: token factory, bonding curve, dividend distributor and graduatio
 - World presets, world renderer, movement and path finding vendored unmodified from **FriendSDK v0.1.2** (`vendor/friendsdk`, Apache-2.0; world artwork: Rare Friends Isometric World Assets, see `vendor/friendsdk/provenance.json` and `NOTICE.md`). Genesis palette based on FriendSDK `GAME_PALETTE`.
 - Character artwork: canonical Rare Friends Generations / Genesis sprites, read on-chain.
 - Fonts: JetBrains Mono and Silkscreen (SIL Open Font License) via Google Fonts.
-- Photos used only in `docs/pixelizer-comparison.png` (Wikimedia Commons): “Grumpy Cat” by Gage Skidmore (CC BY-SA 3.0), “Kabosu and Atsuko Sato” by Asanagi (CC0), “Lil-Bub-2013 (cropped)” by Joyful Noise Recordings (CC BY-SA 4.0), “Pyrkon 2022 – Pepe the Frog” by Tomasz Molina (CC BY-SA 4.0). The comparison image is shared under CC BY-SA 4.0.
+- Photos used only in `docs/pixelizer-comparison.png` and `docs/01-launch.png` (Lil Bub) (Wikimedia Commons): “Grumpy Cat” by Gage Skidmore (CC BY-SA 3.0), “Kabosu and Atsuko Sato” by Asanagi (CC0), “Lil-Bub-2013 (cropped)” by Joyful Noise Recordings (CC BY-SA 4.0), “Pyrkon 2022 – Pepe the Frog” by Tomasz Molina (CC BY-SA 4.0). These two images are shared under CC BY-SA 4.0.
