@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Friendpad</title>
+  <meta name="description" content="A memepad where every token is launched, drawn and held by a Rare Friend. Economy simulated, Friends read live from Robinhood Chain.">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' fill='%23000'/%3E%3Cpath fill='%23fff' d='M4 3h8v2H4zM3 5h2v6H3zM11 5h2v6h-2zM5 11h6v2H5zM6 7h1v1H6zM9 7h1v1H9z'/%3E%3C/svg%3E">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;800&family=Silkscreen&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+  <script type="importmap">
+  { "imports": { "viem": "https://esm.sh/viem@2.21.54?target=es2022" } }
+  </script>
+</head>
+<body>
+  <a class="skip" href="#app">Skip to content</a>
+  <header class="top">
+    <a class="logo" href="#/" aria-label="Friendpad home"><span class="logo-mark" aria-hidden="true"></span>FRIENDPAD</a>
+    <nav class="nav" aria-label="Main">
+      <a href="#/" data-r="home">Tokens</a>
+      <a href="#/launch" data-r="launch">Launch</a>
+      <a href="#/friends" data-r="friends">My Friends</a>
+      <a href="#/economy" data-r="economy">Economy</a>
+    </nav>
+    <div id="wallet" class="wallet"></div>
+  </header>
+  <div class="simbar" role="note">Economy is <b>simulated</b> in your browser · Friends &amp; wallets are read live from Robinhood Chain · no transactions, no signatures</div>
+  <main id="app" tabindex="-1"><p class="muted">Loading Friendpad…</p></main>
+  <footer class="foot small muted">
+    Friendpad · Rare Friends Vibeathon · Token Activity ·
+    <a href="https://robinhoodchain.blockscout.com/address/0x14c49e6118f46525de9ab41a51cbaa3c6ebf181d" target="_blank" rel="noopener">Generations</a> ·
+    <a href="https://robinhoodchain.blockscout.com/token/0x0779369854d3ecdea927206718ffd7730c67b71f" target="_blank" rel="noopener">$RAREFRIENDS</a>
+  </footer>
+  <dialog id="txmodal" aria-label="Transaction preview"></dialog>
+  <script>
+    // Surface module-load failures (e.g. CDN blocked) instead of a blank page.
+    window.addEventListener('error', function (e) {
+      var app = document.getElementById('app');
+      if (app && /Loading Friendpad/.test(app.textContent)) app.innerHTML = '<p class="warn">Friendpad failed to load: ' + (e.message || 'script error') + '. Serve the folder over http (e.g. <code>python -m http.server 8000</code>) and check that esm.sh is reachable.</p>';
+    }, true);
+  </script>
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>
