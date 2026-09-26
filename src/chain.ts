@@ -8,9 +8,17 @@ export const robinhood = defineChain({
   nativeCurrency: CHAIN.nativeCurrency,
   rpcUrls: { default: { http: [CHAIN.rpc] } },
   blockExplorers: { default: { name: 'Blockscout', url: CHAIN.explorer } },
+  contracts: { multicall3: { address: ADDR.multicall3 } },
 });
 
-export const client = createPublicClient({ chain: robinhood, transport: http(CHAIN.rpc, { batch: { batchSize: 40, wait: 20 } }) });
+// Reads are aggregated through Multicall3: one eth_call per batch instead of hundreds of JSON-RPC requests,
+// which the public RPC rate-limits (a wallet with ~200 Friends used to fail most calls).
+export const client = createPublicClient({ chain: robinhood, batch: { multicall: { batchSize: 4096, wait: 16 } }, transport: http(CHAIN.rpc, { retryCount: 4, retryDelay: 400 }) });
+
+/** tokenURI returns ~50 KB of SVG per Friend, too large to aggregate: read it without Multicall. */
+const uriClient = createPublicClient({ chain: robinhood, transport: http(CHAIN.rpc, { retryCount: 4, retryDelay: 400 }) });
+
+const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
 
 export const generationsAbi = parseAbi([
   'function ownerOf(uint256 tokenId) view returns (address)',
@@ -102,11 +110,11 @@ async function readFriendUncached(collection: Collection, id: bigint, meta?: Met
   const [owner, gen, pos, tba, uri] = await Promise.all([
     client.readContract({ address: coll, abi: generationsAbi, functionName: 'ownerOf', args: [id] }).catch(() => null),
     collection === 'generations'
-      ? client.readContract({ address: coll, abi: generationsAbi, functionName: 'generation', args: [id] }).catch(() => 0)
+      ? client.readContract({ address: coll, abi: generationsAbi, functionName: 'generation', args: [id] })
       : Promise.resolve(0),
-    client.readContract({ address: ADDR.activationManager, abi: activationAbi, functionName: 'positions', args: [coll, id] }).catch(() => [0, 0n]),
+    client.readContract({ address: ADDR.activationManager, abi: activationAbi, functionName: 'positions', args: [coll, id] }),
     tbaP,
-    client.readContract({ address: coll, abi: generationsAbi, functionName: 'tokenURI', args: [id] }).catch(() => ''),
+    uriClient.readContract({ address: coll, abi: generationsAbi, functionName: 'tokenURI', args: [id] }).catch(() => ''),
   ]);
   // Always use the live tokenURI: indexer metadata can be stale (e.g. still shows the temporary sprite after hardwire).
   let m: Meta = parseTokenURI(uri as string);
@@ -225,34 +233,47 @@ export async function restoreWallet() {
 }
 
 /**
- * Cheap read for large portfolios: generation + activation (tier, weight) only — no tokenURI (≈80 KB each), no wallet lookup.
- * Used to find the activated Friends among hundreds; full details are then read with readFriend() for those only.
+ * Cheap pass over ALL of a wallet's Friends: generation + activation only (no tokenURI, no wallet lookup), via explicit Multicall3 chunks.
+ * Full details are then read with readFriend() for the activated ones only.
+ * Failed reads are retried and never reported as "temporary" or "not activated"; unreadable Friends are returned in `failed`.
  */
-export async function readFriendsLite(items: { collection: Collection; tokenId: string }[], onProgress?: (done: number, total: number) => void): Promise<Friend[]> {
+export async function readFriendsLite(items: { collection: Collection; tokenId: string }[], onProgress?: (done: number, total: number) => void): Promise<{ friends: Friend[]; failed: number }> {
   const out: Friend[] = [];
-  const CHUNK = 60;
+  const CHUNK = 100;
+  let failed = 0;
   for (let i = 0; i < items.length; i += CHUNK) {
-    const part = items.slice(i, i + CHUNK);
-    const res = await Promise.all(part.map(async it => {
-      const coll = collectionAddress(it.collection) as `0x${string}`;
-      const id = BigInt(it.tokenId);
-      const [gen, pos] = await Promise.all([
-        it.collection === 'generations'
-          ? client.readContract({ address: coll, abi: generationsAbi, functionName: 'generation', args: [id] }).catch(() => 0)
-          : Promise.resolve(0),
-        client.readContract({ address: ADDR.activationManager, abi: activationAbi, functionName: 'positions', args: [coll, id] }).catch(() => [0, 0n]),
-      ]);
-      const weight = BigInt((pos as any)[1] ?? 0n);
-      const f: Friend = {
-        collection: it.collection, tokenId: it.tokenId, owner: null, generation: Number(gen), tier: Number((pos as any)[0] ?? 0),
-        weightRF: Number(weight) / 1e18, active: weight > 0n,
-        state: it.collection === 'generations' && Number(gen) === 0 ? 'Temporary' : weight > 0n ? 'Activated' : 'Hardwired',
-        character: '', tba: '', tbaDeployed: false, image: '',
-      };
-      return f;
-    }));
-    out.push(...res);
+    let todo = items.slice(i, i + CHUNK);
+    for (let attempt = 0; attempt < 4 && todo.length; attempt++) {
+      if (attempt) await sleep(500 * 2 ** attempt);
+      const contracts = todo.flatMap(it => {
+        const coll = collectionAddress(it.collection) as `0x${string}`;
+        const id = BigInt(it.tokenId);
+        return [
+          { address: coll, abi: generationsAbi, functionName: 'generation', args: [id] },
+          { address: ADDR.activationManager, abi: activationAbi, functionName: 'positions', args: [coll, id] },
+        ] as const;
+      });
+      let res: { status: 'success' | 'failure'; result?: unknown }[];
+      try { res = await client.multicall({ contracts: contracts as any, allowFailure: true }) as any; } catch { continue; }
+      const retry: typeof todo = [];
+      todo.forEach((it, j) => {
+        const g = res[2 * j], p = res[2 * j + 1];
+        const genOk = it.collection === 'genesis' || g.status === 'success';
+        if (!genOk || p.status !== 'success') { retry.push(it); return; }
+        const gen = it.collection === 'generations' ? Number(g.result) : 0;
+        const pos = p.result as readonly [number, bigint];
+        const weight = BigInt(pos[1] ?? 0n);
+        out.push({
+          collection: it.collection, tokenId: it.tokenId, owner: null, generation: gen, tier: Number(pos[0] ?? 0),
+          weightRF: Number(weight) / 1e18, active: weight > 0n,
+          state: it.collection === 'generations' && gen === 0 ? 'Temporary' : weight > 0n ? 'Activated' : 'Hardwired',
+          character: '', tba: '', tbaDeployed: false, image: '',
+        });
+      });
+      todo = retry;
+    }
+    failed += todo.length;
     onProgress?.(Math.min(items.length, i + CHUNK), items.length);
   }
-  return out;
+  return { friends: out, failed };
 }

@@ -17,6 +17,7 @@ const S = {
     myFriends: [],
     friendsLoading: false,
     friendsError: '',
+    friendsWarn: '',
     friendsProgress: '',
     friendsTab: 'earning',
     notShown: 60,
@@ -36,7 +37,7 @@ function toRef(f) {
     };
 }
 function drawGen(f) { return f.collection === 'genesis' ? GENESIS_GEN : f.generation; }
-function canLaunch(f) { return DEV || (f.active && (f.collection === 'genesis' || f.generation > 0)); }
+function canLaunch(f) { return !!f.tba && (DEV || (f.active && (f.collection === 'genesis' || f.generation > 0))); }
 function requestSprite(collection, tokenId) {
     const k = sim.friendKey(collection, tokenId);
     if (sprites.has(k) || spriteReq.has(k))
@@ -308,7 +309,7 @@ function viewFriends() {
         const earning = S.myFriends.filter(f => f.active).sort((a, b) => rank(a) - rank(b) || b.weightRF - a.weightRF);
         const notE = S.myFriends.filter(f => !f.active).sort((a, b) => rank(a) - rank(b));
         const tab = S.friendsTab;
-        const tabs = `<div class="ftabs" role="tablist">
+        const tabs = (S.friendsWarn ? `<p class="warn small">${esc(S.friendsWarn)}</p>` : '') + `<div class="ftabs" role="tablist">
       ${[['all', 'All', S.myFriends.length], ['earning', 'Earning', earning.length], ['not', 'Not earning', notE.length]].map(([k, l, n]) => `<button role="tab" class="${tab === k ? 'on' : ''}" aria-selected="${tab === k}" data-act="ftab" data-t="${k}">${l} <span class="muted">${n}</span></button>`).join('')}
     </div>`;
         const showE = tab !== 'not', showN = tab !== 'earning';
@@ -349,6 +350,7 @@ async function loadMyFriends() {
     const acct = S.account;
     S.friendsLoading = true;
     S.friendsError = '';
+    S.friendsWarn = '';
     S.friendsProgress = 'Listing your Friends…';
     softRender();
     try {
@@ -356,7 +358,7 @@ async function loadMyFriends() {
         if (S.account !== acct)
             return;
         // 1) cheap pass over ALL Friends: generation + activation only
-        const lite = await chain.readFriendsLite(ids, (d, n) => { S.friendsProgress = `Reading activation status… ${d} / ${n}`; if (current.name === 'friends')
+        const { friends: lite, failed } = await chain.readFriendsLite(ids, (d, n) => { S.friendsProgress = `Reading activation status… ${d} / ${n}`; if (current.name === 'friends')
             viewFriends(); });
         if (S.account !== acct)
             return;
@@ -364,12 +366,24 @@ async function loadMyFriends() {
         const act = lite.filter(f => f.active);
         S.friendsProgress = `Reading ${act.length} activated Friends…`;
         softRender();
-        const full = await Promise.allSettled(act.map(f => chain.readFriend(f.collection, f.tokenId)));
+        const full = [];
+        for (let i = 0; i < act.length; i += 4) { // small groups: each detail read includes a large tokenURI
+            full.push(...await Promise.allSettled(act.slice(i, i + 4).map(f => chain.readFriend(f.collection, f.tokenId))));
+            S.friendsProgress = `Reading activated Friends… ${full.length} / ${act.length}`;
+            if (current.name === 'friends')
+                viewFriends();
+            if (S.account !== acct)
+                return;
+        }
         if (S.account !== acct)
             return;
-        const actFull = full.flatMap(r => r.status === 'fulfilled' && r.value.owner?.toLowerCase() === acct.toLowerCase() ? [r.value] : []);
+        // a failed detail read keeps the Friend (with its real activation) instead of silently dropping it
+        const actFull = full.flatMap((r, i) => r.status === 'fulfilled' ? (r.value.owner?.toLowerCase() === acct.toLowerCase() ? [r.value] : []) : [act[i]]);
+        const detailFailed = full.filter(r => r.status === 'rejected').length;
         const inactive = lite.filter(f => !f.active);
         S.myFriends = [...actFull, ...inactive];
+        if (failed || detailFailed)
+            S.friendsWarn = `The public RPC did not answer for ${failed + detailFailed} Friend(s)${failed ? ` (${failed} not listed)` : ''}. Reload the page to retry.`;
         S.friendsTab = actFull.length ? 'earning' : 'all';
         for (const f of actFull) {
             const k = sim.friendKey(f.collection, f.tokenId);

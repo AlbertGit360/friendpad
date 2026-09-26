@@ -141,6 +141,7 @@ There are no random outcomes, odds or consumables. All constants live in `src/co
 | $RAREFRIENDS (RF) | [`0x0779369854d3ecdea927206718ffd7730c67b71f`](https://robinhoodchain.blockscout.com/token/0x0779369854d3ecdea927206718ffd7730c67b71f) |
 | WETH | [`0x0bd7d308f8e1639fab988df18a8011f41eacad73`](https://robinhoodchain.blockscout.com/address/0x0bd7d308f8e1639fab988df18a8011f41eacad73) |
 | ERC-6551 registry | [`0x000000006551c19487814612e58FE06813775758`](https://robinhoodchain.blockscout.com/address/0x000000006551c19487814612e58FE06813775758) |
+| Multicall3 (batched reads) | [`0xcA11bde05977b3631167028862bE2a173976CA11`](https://robinhoodchain.blockscout.com/address/0xcA11bde05977b3631167028862bE2a173976CA11) |
 | TokenBoundAccount implementation | [`0xED038886c002B285EB0f74971e967B02F6af8ea5`](https://robinhoodchain.blockscout.com/address/0xED038886c002B285EB0f74971e967B02F6af8ea5) |
 
 Only the public RPC (`https://rpc.mainnet.chain.robinhood.com`) and the public Blockscout API are used — no API keys.
@@ -151,6 +152,7 @@ Only the public RPC (`https://rpc.mainnet.chain.robinhood.com`) and the public B
 - Pixelizer checked by eye on four real meme photos (Grumpy Cat, Kabosu/Doge, Lil Bub, Pepe cosplay) — see the comparison image above; sharpness and legibility increase Gen-6 → Gen-1 → Genesis.
 - Browser checks (Chrome, desktop): seeded tokens render; launch preview defaults to the creator Friend's tier; buy updates chart, trades and holder world; floating wallets never cover walking Friends or labels; Economy page; reload on `#/token/…` keeps the route.
 - Deployed GitHub Pages site checked in a fresh browser profile without a wallet: viem loads from esm.sh, RPC and Blockscout reads work (CORS), Friend lookup works, hash routes survive a reload.
+- Large wallet: a real 210-Friend address (read-only, address only) lists all 10 activated Friends with sprites and deployed wallets.
 - Not automated: there is no unit-test suite. Screenshot/browser checks used a read-only mock wallet (address only); the Move to Friend → Claim flow with a real wallet holding an activated Friend is not covered by these checks.
 
 ## Known limitations
@@ -162,7 +164,7 @@ Only the public RPC (`https://rpc.mainnet.chain.robinhood.com`) and the public B
 - If a Friend NFT is staked in a contract, that contract becomes the wallet owner.
 - Any NFT transfer clears the Friend's activation (`clearActivation`), so a sold Friend must be re-activated before launching again.
 - Uploaded images are not moderated; a production launchpad needs image moderation.
-- Public RPC and Blockscout API are rate-limited; very large portfolios are capped to the first 40 Friends.
+- Public RPC and Blockscout API are rate-limited. Friend reads go through Multicall3 (a 210-Friend wallet loads in ~4 s); if some reads still fail, the Friends page says so instead of showing them as not activated.
 
 ## Future work
 

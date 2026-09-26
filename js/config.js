@@ -16,6 +16,7 @@ export const ADDR = {
     weth: '0x0bd7d308f8e1639fab988df18a8011f41eacad73',
     registry6551: '0x000000006551c19487814612e58FE06813775758',
     tbaImplementation: '0xED038886c002B285EB0f74971e967B02F6af8ea5',
+    multicall3: '0xcA11bde05977b3631167028862bE2a173976CA11',
 };
 /** Placeholder address used in calldata for contracts that do not exist yet (simulated). */
 export const SIM_CONTRACT = '0x000000000000000000000000000000000000f00d';
